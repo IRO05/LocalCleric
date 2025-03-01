@@ -25,9 +25,11 @@ try:
     # Validate config
     if not config.get('gemini', {}).get('api_key'):
         raise ValueError("Gemini API key not found in config")
+    if not config.get('google_places', {}).get('api_key'):
+        raise ValueError("Google Places API key not found in config")
     
     # Initialize chatbot
-    chatbot = Chatbot(config['gemini']['api_key'])
+    chatbot = Chatbot(config['gemini']['api_key'], config['google_places']['api_key'])
     
 except Exception as e:
     logger.error(f"Startup Error: {str(e)}")
