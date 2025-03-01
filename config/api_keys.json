@@ -6,5 +6,11 @@
         "storageBucket": "your-app.appspot.com",
         "messagingSenderId": "your-messaging-sender-id",
         "appId": "your-app-id"
+    },
+    "gemini": {
+        "api_key": ""
+    },
+    "google_places": {
+        "api_key": ""
     }
 }
