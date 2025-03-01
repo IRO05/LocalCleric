@@ -52,8 +52,52 @@
   margin-top: 1rem;
 }
 
-.auth-button:hover {
+.auth-button:hover:not(:disabled) {
   background-color: #2980b9;
+}
+
+.auth-button:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  color: #e74c3c;
+  text-align: center;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background-color: #fadbd8;
+  border-radius: 4px;
+}
+
+.google-auth-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.google-auth-button:hover:not(:disabled) {
+  background-color: #f5f6fa;
+}
+
+.google-auth-button:disabled {
+  background-color: #f5f6fa;
+  cursor: not-allowed;
+}
+
+.google-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .auth-switch {
@@ -72,8 +116,13 @@
   margin-left: 0.5rem;
 }
 
-.switch-button:hover {
+.switch-button:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+.switch-button:disabled {
+  color: #bdc3c7;
+  cursor: not-allowed;
 }
 
 @media (max-width: 768px) {

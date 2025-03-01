@@ -66,6 +66,11 @@ class Chatbot:
 
 If the user describes symptoms, always ask them to rate the severity on a scale of 1-10.
 
+When the user provides a pain/severity rating:
+- For ratings lower than 6, recommend a general physician first unless the symptoms clearly indicate a specialist is needed
+- For ratings 6 and above, recommend appropriate specialists based on the symptoms
+- For cases that are common symptoms like headaches or runny noses unless the symptoms are incredibly intense, recommend them to a general physician or urgent care center
+
 If the user asks for a specialist recommendation or if your response includes recommending a specialist:
 1. Clearly specify the type of specialist needed (e.g., "cardiologist", "dermatologist", "general physician")
 2. Start that line with "FIND_SPECIALIST:" followed by the specialist type

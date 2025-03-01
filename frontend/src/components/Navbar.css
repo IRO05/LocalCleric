@@ -6,6 +6,7 @@
   background-color: rgb(75, 95, 70);
   color: white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 80px;
 }
 
 .navbar-logo {
@@ -45,6 +46,42 @@
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+.loading {
+  color: white;
+  padding: 0 2rem;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-email {
+  color: white;
+  font-size: 1rem;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sign-out-button {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.sign-out-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 @media (max-width: 768px) {
   .navbar {
     flex-direction: column;
@@ -60,6 +97,22 @@
 
   .nav-link {
     font-size: 1rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .user-menu {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .user-email {
+    font-size: 0.9rem;
+  }
+
+  .sign-out-button {
+    font-size: 0.9rem;
     padding: 0.4rem 0.8rem;
   }
 }
