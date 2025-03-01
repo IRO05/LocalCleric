@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './Chatbot.css';
+const logo = require("../assets/localClericLogo.png")
 
 function Chatbot() {
   const [messages, setMessages] = useState([{
@@ -39,8 +40,11 @@ function Chatbot() {
 
   return (
     <div className="chatbot-container">
-      <h1 className="page-title">AI Chat Assistant</h1>
+      <h1 id="clerictitle" className="page-title">Approach the cleric</h1>
       <div className="chat-window">
+        <div id='chatLogo'>
+          <img src={logo} alt="Logo" className="logo" />
+        </div>
         <div className="messages">
           {messages.map((message, index) => (
             <div 

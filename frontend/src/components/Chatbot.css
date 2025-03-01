@@ -5,7 +5,7 @@
 }
 
 .chat-window {
-  background: white;
+  background: rgb(222, 234, 220);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   height: 70vh;
@@ -28,13 +28,13 @@
 }
 
 .message.user {
-  background-color: #3498db;
+  background-color: rgb(75, 95, 70);
   color: white;
   margin-left: auto;
 }
 
 .message.bot {
-  background-color: #f0f2f5;
+  background-color: rgb(253, 255, 213);
   color: #2c3e50;
   margin-right: auto;
 }
@@ -65,7 +65,7 @@
 }
 
 .send-button {
-  background-color: #3498db;
+  background-color: rgb(75, 95, 70);
   color: white;
   border: none;
   padding: 0.8rem 1.5rem;
@@ -127,4 +127,25 @@
   .chat-window {
     height: calc(100vh - 200px);
   }
+}
+
+#clerictitle {
+    background-color: rgb(159, 187, 152);
+    padding: 5px;
+    color: white;
+}
+
+#chatLogo {
+
+  z-index: 3;
+  position: relative;
+  left: 30%;
+  top: 30%;
+  opacity: 0.75;
+  
+}
+
+#chatLogo img {
+  height: 40%;
+  width: 40%;
 }
