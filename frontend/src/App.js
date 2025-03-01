@@ -5,7 +5,6 @@ import Home from './components/Home';
 import Calendar from './components/Calendar';
 import Chatbot from './components/Chatbot';
 import SignIn from './components/SignIn';
-import About from './components/About';
 import './App.css';
 
 function App() {
@@ -16,10 +15,9 @@ function App() {
         <div className="content">
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/calendar" element={<Calendar />} />
             <Route path="/chatbot" element={<Chatbot />} />
+            <Route path="/calendar" element={<Calendar />} />
             <Route path="/signin" element={<SignIn />} />
-            <Route path="/about" element={<About />} />
           </Routes>
         </div>
       </div>
