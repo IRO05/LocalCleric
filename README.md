@@ -21,7 +21,12 @@ A web application combining AI chatbot capabilities with organizational tools, b
 
 ### Configuration
 
-1. Add your API keys to `config/api_keys.json`:
+1. Copy the template configuration file:
+```bash
+cp config/api_keys.template.json config/api_keys.json
+```
+
+2. Add your API keys to `config/api_keys.json`. This file is gitignored to protect your sensitive data:
 ```json
 {
     "firebase": {
@@ -37,6 +42,8 @@ A web application combining AI chatbot capabilities with organizational tools, b
     }
 }
 ```
+
+Note: Never commit your actual API keys to version control. The `api_keys.json` file is included in `.gitignore` for security.
 
 ### Backend Setup
 
@@ -61,7 +68,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The backend will run on `http://localhost:5000`
+The backend will run on `http://localhost:5001` (Note: Using port 5001 to avoid conflicts with macOS AirPlay service)
 
 ### Frontend Setup
 

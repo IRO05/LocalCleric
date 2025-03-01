@@ -17,15 +17,15 @@ function Chatbot() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/chat', {
+      const response = await axios.post('http://localhost:5001/api/chat', {
         message: userMessage
       });
 
       setMessages(prev => [...prev, { text: response.data.response, sender: 'bot' }]);
     } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, { 
-        text: 'Sorry, I encountered an error. Please try again.',
+      console.error('Error:', error.response?.data?.error || error.message);
+      setMessages(prev => [...prev, {
+        text: error.response?.data?.error || 'Sorry, I encountered an error. Please try again.',
         sender: 'bot',
         error: true
       }]);

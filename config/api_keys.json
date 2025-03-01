@@ -8,6 +8,6 @@
         "appId": "your-app-id"
     },
     "gemini": {
-        "api_key": "YOUR_GEMINI_API_KEY"
+        "api_key": ""
     }
 }
