@@ -1,10 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import google.generativeai as genai
 import json
 import os
 import logging
-from werkzeug.exceptions import BadRequest, InternalServerError
+from werkzeug.exceptions import BadRequest
+from chatbot import Chatbot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,20 +26,9 @@ try:
     if not config.get('gemini', {}).get('api_key'):
         raise ValueError("Gemini API key not found in config")
     
-    logger.info("Found Gemini API key in config")
-
-    # Configure Gemini
-    api_key = config['gemini']['api_key']
-    genai.configure(api_key=api_key)
-    logger.info("Configured Gemini API")
+    # Initialize chatbot
+    chatbot = Chatbot(config['gemini']['api_key'])
     
-    # Initialize the model (using the standard model name)
-    try:
-        model = genai.GenerativeModel('models/gemini-2.0-flash')
-        logger.info("Successfully initialized Gemini model with v1beta API")
-    except Exception as e:
-        logger.error(f"Error initializing model: {str(e)}")
-        raise
 except Exception as e:
     logger.error(f"Startup Error: {str(e)}")
     raise
@@ -53,41 +42,15 @@ def chat():
             logger.warning("Request is not JSON")
             raise BadRequest("Request must be JSON")
 
-        data = request.json
-        message = data.get('message')
-        
-        if not message:
-            logger.warning("No message provided in request")
-            raise BadRequest("Message is required")
-
-        logger.info(f"Processing message: {message[:50]}...")  # Log first 50 chars of message
-
-        # Generate response using Gemini
-        try:
-            logger.info("Sending request to Gemini API")
-            response = model.generate_content(message)
-            
-            if not response.text:
-                logger.error("Received empty response from Gemini")
-                raise ValueError("Empty response from Gemini")
-            
-            logger.info("Successfully generated response from Gemini")
-            return jsonify({
-                'response': response.text
-            })
-        except Exception as e:
-            logger.error(f"Gemini API Error: {str(e)}")
-            raise InternalServerError(f"Error generating response from AI model: {str(e)}")
+        response_text = chatbot.process_chat_request(request.json)
+        return jsonify({'response': response_text})
 
     except BadRequest as e:
         logger.warning(f"Bad Request: {str(e)}")
         return jsonify({'error': str(e)}), 400
-    except InternalServerError as e:
-        logger.error(f"Internal Server Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
     except Exception as e:
         logger.error(f"Unexpected Error: {str(e)}")
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/calendar', methods=['GET'])
 def get_calendar():

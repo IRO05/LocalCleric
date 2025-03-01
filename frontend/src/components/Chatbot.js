@@ -3,7 +3,10 @@ import axios from 'axios';
 import './Chatbot.css';
 
 function Chatbot() {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([{
+    text: "Thank you for choosing your local cleric! If this is a life threatening issue please contact 911\nHow can I help you today?",
+    sender: 'bot'
+  }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
