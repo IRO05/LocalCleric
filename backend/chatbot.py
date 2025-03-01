@@ -3,7 +3,7 @@ import json
 import logging
 import requests
 from werkzeug.exceptions import BadRequest, InternalServerError
-
+#idk if this saved
 logger = logging.getLogger(__name__)
 
 PLACES_API_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
