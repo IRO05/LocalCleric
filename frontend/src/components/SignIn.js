@@ -29,7 +29,7 @@ function SignIn() {
         }
         await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       }
-      navigate('/'); // Redirect to home page after successful auth
+      navigate('/calendar'); // Redirect to calendar page after successful auth
     } catch (err) {
       setError(err.message);
     } finally {
@@ -42,7 +42,7 @@ function SignIn() {
     setLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      navigate('/');
+      navigate('/calendar');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -71,6 +71,7 @@ function SignIn() {
             onChange={handleChange}
             className="auth-input"
             required
+            autoComplete="email"
           />
           <input
             type="password"
@@ -80,6 +81,7 @@ function SignIn() {
             onChange={handleChange}
             className="auth-input"
             required
+            autoComplete="current-password"
           />
           {!isSignIn && (
             <input
@@ -90,6 +92,7 @@ function SignIn() {
               onChange={handleChange}
               className="auth-input"
               required
+              autoComplete="new-password"
             />
           )}
           <button 

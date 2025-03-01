@@ -3,14 +3,26 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import apiKeys from './config/api_keys.json';
 
-const firebaseConfig = apiKeys.firebase;
+let app;
+let auth;
+let db;
+let googleProvider;
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+try {
+  // Initialize Firebase
+  app = initializeApp(apiKeys.firebase);
 
-// Get Auth and Firestore instances
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-export const db = getFirestore(app);
+  // Get Auth and Firestore instances
+  auth = getAuth(app);
+  db = getFirestore(app);
+  googleProvider = new GoogleAuthProvider();
 
+  // Test the connection
+  auth.useDeviceLanguage();
+} catch (error) {
+  console.error('Error initializing Firebase:', error);
+}
+
+// Export initialized instances
+export { auth, db, googleProvider };
 export default app;

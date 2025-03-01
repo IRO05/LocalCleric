@@ -21,7 +21,7 @@ function Chatbot() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5001/api/chat', {
+      const response = await axios.post('http://localhost:5003/api/chat', {
         message: userMessage
       });
 

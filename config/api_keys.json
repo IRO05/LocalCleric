@@ -1,17 +1,3 @@
 {
-    "firebase": {
-        "apiKey": "",
-        "authDomain": "",
-        "projectId": "",
-        "storageBucket": "",
-        "messagingSenderId": "",
-        "appId": "",
-        "measurementId": ""
-    },
-    "gemini": {
-        "api_key": ""
-    },
-    "google_places": {
-        "api_key": ""
-    }
+
 }
