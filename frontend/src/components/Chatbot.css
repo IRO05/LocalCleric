@@ -31,12 +31,14 @@
   background-color: rgb(75, 95, 70);
   color: white;
   margin-left: auto;
+  z-index: 2;
 }
 
 .message.bot {
   background-color: rgb(253, 255, 213);
   color: #2c3e50;
   margin-right: auto;
+  z-index: 2;
 }
 
 .message.error {
@@ -137,15 +139,17 @@
 
 #chatLogo {
 
-  z-index: 3;
-  position: relative;
-  left: 30%;
-  top: 30%;
-  opacity: 0.75;
+  z-index: 1;
+  
+  display: inline;
   
 }
 
-#chatLogo img {
-  height: 40%;
-  width: 40%;
+#chatLogo {
+  position: absolute;
+  width: 10%;
+  left: 45%;
+  top: 60%;
+  opacity: 0.5;
+  z-index: 1;
 }
