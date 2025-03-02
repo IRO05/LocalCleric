@@ -17,6 +17,8 @@
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  position: relative;
+  z-index: 2;
 }
 
 .message {
@@ -150,6 +152,7 @@
   width: 10%;
   left: 45%;
   top: 60%;
-  opacity: 0.5;
-  z-index: 1;
+  opacity: 0.3;
+  z-index: 0;
+  pointer-events: none;
 }

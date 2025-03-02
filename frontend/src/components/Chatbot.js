@@ -7,7 +7,7 @@ const logo = require("../assets/localClericLogo.png")
 
 function Chatbot() {
   const [messages, setMessages] = useState([{
-    text: "Thank you for choosing your local cleric! If this is a life threatening issue please contact 911\nHow can I help you today?",
+    text: "Welcome! I am the cleric and I shall help you with any of your medical needs, type Help to get a list of things I can do and remember! For emergencies call 911! Now how can I help you today?",
     sender: 'bot'
   }]);
   const [input, setInput] = useState('');
@@ -28,9 +28,21 @@ function Chatbot() {
         throw new Error('Invalid date format');
       }
 
-      // Set the time if provided
+      // Parse time in AM/PM format
       if (eventDetails.time) {
-        const [hours, minutes] = eventDetails.time.split(':').map(Number);
+        const timeStr = eventDetails.time;
+        const isPM = timeStr.toUpperCase().includes('PM');
+        const [hoursStr, minutesStr] = timeStr.replace(/\s*(AM|PM)\s*/i, '').split(':');
+        let hours = parseInt(hoursStr);
+        const minutes = parseInt(minutesStr);
+
+        // Convert to 24-hour format
+        if (isPM && hours !== 12) {
+          hours += 12;
+        } else if (!isPM && hours === 12) {
+          hours = 0;
+        }
+
         eventDate.setHours(hours, minutes);
       }
 

@@ -2,6 +2,7 @@ import google.generativeai as genai
 import json
 import logging
 import requests
+import pandas as pd
 from werkzeug.exceptions import BadRequest, InternalServerError
 from datetime import datetime
 
@@ -14,14 +15,60 @@ class Chatbot:
         self.api_key = api_key
         self.places_api_key = places_api_key
         self.setup_model()
+        self.load_dataset()
+        self.user_symptoms = {}  # Store symptoms per user
+        self.user_severity = {}  # Store overall severity per user
+        self.last_interaction = {}  # Track last interaction time per user
+        self.last_recommended_doctor = {}  # Store last recommended doctor per user
+
+    def load_dataset(self):
+        """Load and prepare the medical dataset"""
+        try:
+            self.df = pd.read_csv('dataset/dataset_with_specialists.csv')
+            logger.info("Successfully loaded medical dataset")
+        except Exception as e:
+            logger.error(f"Error loading dataset: {str(e)}")
+            raise
+
+    def match_symptoms(self, user_symptoms):
+        """Match user symptoms with diseases in the dataset"""
+        matches = []
+        user_symptoms = [s.lower() for s in user_symptoms]
+        
+        for _, row in self.df.iterrows():
+            symptom_match_count = 0
+            total_symptoms = 0
+            
+            for i in range(1, 18):
+                symptom = row[f'symptom{i}']
+                if pd.notna(symptom):
+                    total_symptoms += 1
+                    if symptom.lower() in user_symptoms:
+                        symptom_match_count += 1
+            
+            if total_symptoms > 0 and symptom_match_count > 0:
+                match_percentage = (symptom_match_count / total_symptoms) * 100
+                if match_percentage >= 30:
+                    matches.append({
+                        'disease': row['disease'],
+                        'specialist': row['specialist'],
+                        'match_percentage': match_percentage
+                    })
+        
+        matches.sort(key=lambda x: x['match_percentage'], reverse=True)
+        return matches[:3]
 
     def find_nearby_specialist(self, specialist_type, location=""):
         """Find nearby medical specialists using Google Places API"""
         try:
-            # Construct the search query
-            query = f"{specialist_type} doctor near {location}" if location else f"{specialist_type} doctor"
+            # Handle different types of doctor searches
+            search_term = specialist_type.lower()
+            if search_term in ["general physician", "general practitioner", "primary care"]:
+                search_term = "family doctor"
+            elif "specialist" in search_term:
+                search_term = search_term.replace(" specialist", "")
             
-            # Make request to Places API
+            query = f"{search_term} doctor near {location}" if location else f"{search_term} doctor"
             params = {
                 'query': query,
                 'key': self.places_api_key,
@@ -30,13 +77,11 @@ class Chatbot:
             
             response = requests.get(PLACES_API_URL, params=params)
             response.raise_for_status()
-            
             results = response.json().get('results', [])
             
             if not results:
                 return None
                 
-            # Get the first result (highest ranked)
             top_result = results[0]
             return {
                 'name': top_result.get('name'),
@@ -84,76 +129,185 @@ class Chatbot:
             logger.error(f"Error parsing event details: {str(e)}")
             return None
 
-    def generate_response(self, message):
+    def extract_symptoms(self, ai_response):
+        """Extract symptoms from AI response"""
+        try:
+            symptoms = []
+            severity = None
+            lines = ai_response.split('\n')
+            
+            for line in lines:
+                if line.startswith('Symptoms:'):
+                    symptoms_text = line.replace('Symptoms:', '').strip()
+                    symptoms = [s.strip() for s in symptoms_text.split(',')]
+                elif line.startswith('Severity:'):
+                    severity = line.replace('Severity:', '').strip()
+            
+            return symptoms, severity
+        except Exception as e:
+            logger.error(f"Error extracting symptoms: {str(e)}")
+            return [], None
+
+    def should_ask_severity(self, user_id):
+        """Determine if we should ask for symptom severity"""
+        current_time = datetime.now()
+        return (user_id not in self.last_interaction or 
+                (current_time - self.last_interaction[user_id]).total_seconds() > 3600)
+
+    def generate_response(self, message, user_id="default"):
         """Generate a response using the Gemini model"""
         try:
             logger.info("Sending request to Gemini API")
+            self.last_interaction[user_id] = datetime.now()
             
-            structured_prompt = """You are an AI-powered medical assistant, designed to help users understand their symptoms and suggest possible medical conditions. You can also help schedule appointments and events. Your responses should be concise, direct, and professional.
-
-For medical inquiries:
-1. Ask users to rate symptoms on a scale of 1-10
-2. Recommend specialists when needed using "FIND_SPECIALIST:" prefix
-3. Guide users to appropriate medical professionals
-4. Remind users to seek emergency care (911) for severe symptoms
-
-For scheduling requests:
-1. If the user wants to schedule something, format your response with "SCHEDULE_EVENT:" followed by:
-   Title: [Event title]
-   Date: [YYYY-MM-DD format]
-   Time: [HH:MM format in 24-hour time]
-2. Be specific about dates and times
-3. If the request is vague, ask for clarification about timing
-4. For medical appointments, include the type of appointment in the title
-
-Example scheduling response:
-"I'll help you schedule that appointment.
-
+            base_prompt = """You are a medical assistant. Keep responses under 2 sentences. For scheduling use:
 SCHEDULE_EVENT:
-Title: Follow-up with Dr. Smith
-Date: 2025-03-15
-Time: 14:30"
+Title: [title]
+Date: YYYY-MM-DD
+Time: HH:MM
 
-Remember:
-1. Maintain a professional tone
-2. Be concise and direct
-3. For medical queries, don't provide diagnoses
-4. For scheduling, always use the specified format
-5. Ask for clarification if timing is unclear
+Message: """
 
-User's message: """ + message
+            if self.should_ask_severity(user_id):
+                prompt = base_prompt
+            else:
+                symptoms = ', '.join(self.user_symptoms.get(user_id, []))
+                severity = self.user_severity.get(user_id, 'Not provided')
+                prompt = f"Previous: {symptoms} (Severity: {severity})\n{base_prompt}"
 
-            response = self.model.generate_content(structured_prompt)
+            message_lower = message.lower().strip()
             
-            if not response.text:
-                logger.error("Received empty response from Gemini")
-                raise ValueError("Empty response from Gemini")
+            # Handle help command first
+            if message_lower == "help":
+                help_text = """Here's how to use the cleric:
 
-            # Process the response
+
+To find a doctor near you, try saying:
+"Can you find me a general physician?"
+"I need a cardiologist near me"
+
+
+To schedule an appointment:
+After finding a doctor, simply say:
+"Schedule an appointment with them for [time] on [date]"
+For example: "Schedule an appointment with them for 2:30 PM on 3/15/25"
+
+
+To get medical advice:
+Tell me your symptoms and rate your discomfort (1-10)
+For example: "I have headache and nausea, severity is 7"
+I'll suggest possible conditions and specialists
+
+
+Try any of these commands - I'm here to help!"""
+
+                return {
+                    'text': help_text,
+                    'event_details': None
+                }
+
+            # Check for doctor/specialist requests
+            specialist_types = ["cardiologist", "neurologist", "dermatologist", "pediatrician", "orthopedist"]
+            doctor_type = None
+
+            # Check for specialists first
+            for specialist in specialist_types:
+                if specialist in message_lower:
+                    doctor_type = specialist
+                    break
+            
+            # Check for general doctor requests
+            if not doctor_type and any(term in message_lower for term in ["doctor", "physician"]):
+                doctor_type = "family doctor"
+
+            # Handle doctor search if applicable
+            if doctor_type:
+                specialist_info = self.find_nearby_specialist(doctor_type)
+                if specialist_info:
+                    self.last_recommended_doctor[user_id] = specialist_info
+                    return {
+                        'text': f"I found a {doctor_type} near you: {specialist_info['name']} at {specialist_info['address']}",
+                        'event_details': None
+                    }
+
+            # Handle non-doctor requests
+            response = self.model.generate_content(prompt + message)
+            if not response.text:
+                raise ValueError("Empty response from Gemini")
             response_text = response.text
             
-            # Check for specialist recommendation
-            specialist_line = None
-            for line in response_text.split('\n'):
-                if line.startswith('FIND_SPECIALIST:'):
-                    specialist_type = line.replace('FIND_SPECIALIST:', '').strip()
-                    specialist_info = self.find_nearby_specialist(specialist_type)
+            # Check if user wants to schedule with last recommended doctor
+            if any(term in message.lower() for term in ["schedule", "appointment", "book"]) and "them" in message.lower():
+                if user_id in self.last_recommended_doctor:
+                    doctor = self.last_recommended_doctor[user_id]
+                    doctor_name = doctor['name'].split(',')[0]  # Get just the doctor/facility name
+                    # Extract date and time from message
+                    date = datetime.now().strftime('%Y-%m-%d')  # default to today
+                    time = "9:00 AM"  # default time
+                    
+                    # Parse date
+                    if "on" in message.lower():
+                        message_parts = message.lower().split()
+                        for i, word in enumerate(message_parts):
+                            if word == "on" and i + 1 < len(message_parts):
+                                date_str = message_parts[i + 1]
+                                try:
+                                    parsed_date = datetime.strptime(date_str, '%m/%d/%y')
+                                    date = parsed_date.strftime('%Y-%m-%d')
+                                except ValueError:
+                                    pass
+                    
+                    # Parse time
+                    message_parts = message.lower().split()
+                    for i, word in enumerate(message_parts):
+                        if word in ["at", "for"]:
+                            if i + 1 < len(message_parts):
+                                next_word = message_parts[i + 1]
+                                if "pm" in next_word:
+                                    hour = next_word.replace("pm", "").strip()
+                                    if hour.isdigit() and 1 <= int(hour) <= 12:
+                                        time = f"{int(hour)}:00 PM"
+                                elif "am" in next_word:
+                                    hour = next_word.replace("am", "").strip()
+                                    if hour.isdigit() and 1 <= int(hour) <= 12:
+                                        time = f"{int(hour)}:00 AM"
+                    
+                    response_text = f"I'll help you schedule an appointment with {doctor_name}.\nSCHEDULE_EVENT:\nTitle: Appointment with {doctor_name}\nDate: {date}\nTime: {time}"
+            
+            # Extract and store new symptoms if needed
+            if self.should_ask_severity(user_id):
+                symptoms, severity = self.extract_symptoms(response_text)
+                if symptoms:
+                    self.user_symptoms[user_id] = symptoms
+                if severity:
+                    self.user_severity[user_id] = severity
+            
+            # Match symptoms with diseases
+            all_symptoms = self.user_symptoms.get(user_id, [])
+            if all_symptoms:
+                matches = self.match_symptoms(all_symptoms)
+                if matches:
+                    conditions = [match['disease'] for match in matches][:2]
+                    specialists = list(set(match['specialist'] for match in matches))
+                    specialist_info = self.find_nearby_specialist(specialists[0]) if specialists else None
+                    
+                    recommendations = f"\n\nPossible: {', '.join(conditions)}"
                     if specialist_info:
-                        specialist_line = f"\n\nRecommended {specialist_type}:\n" \
-                                      f"Name: {specialist_info['name']}\n" \
-                                      f"Address: {specialist_info['address']}"
-                    break
+                        recommendations += f"\nNearest {specialists[0]}: {specialist_info['name']}"
+                    
+                    response_text += recommendations
 
             # Check for event scheduling
             event_details = self.parse_event_details(response_text)
             
-            # Clean up response and add additional information
-            final_response = response_text
-            if specialist_line:
-                final_response = response_text.replace(line, '') + specialist_line
-            
+            # Clean up response text by removing SCHEDULE_EVENT section
+            if "SCHEDULE_EVENT:" in response_text:
+                display_text = response_text.split("SCHEDULE_EVENT:")[0].strip()
+            else:
+                display_text = response_text
+
             return {
-                'text': final_response,
+                'text': display_text,
                 'event_details': event_details
             }
 
@@ -168,6 +322,7 @@ User's message: """ + message
             raise BadRequest("Message is required")
 
         message = data['message']
-        logger.info(f"Processing message: {message[:50]}...")  # Log first 50 chars of message
+        user_id = data.get('user_id', 'default')
+        logger.info(f"Processing message for user {user_id}: {message[:50]}...")
         
-        return self.generate_response(message)
+        return self.generate_response(message, user_id)
