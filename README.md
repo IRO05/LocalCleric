@@ -9,6 +9,7 @@ A web application combining AI chatbot capabilities with organizational tools, b
 - User authentication
 - Cloud data storage
 - Responsive design
+- Doctor and specialist finder using Google Places API
 
 ## Prerequisites
 
@@ -16,6 +17,7 @@ A web application combining AI chatbot capabilities with organizational tools, b
 - Python (v3.8 or higher)
 - Firebase account
 - Google Gemini API key
+- Google Places API key
 
 ## Setup
 
@@ -39,6 +41,9 @@ cp config/api_keys.template.json config/api_keys.json
     },
     "gemini": {
         "api_key": "YOUR_GEMINI_API_KEY"
+    },
+    "google_places": {
+        "api_key": "YOUR_GOOGLE_PLACES_API_KEY"
     }
 }
 ```
@@ -68,7 +73,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The backend will run on `http://localhost:5001` (Note: Using port 5001 to avoid conflicts with macOS AirPlay service)
+The backend will run on `http://localhost:5003`
 
 ### Frontend Setup
 
@@ -94,6 +99,7 @@ The frontend will run on `http://localhost:3000`
 ```
 ├── backend/
 │   ├── app.py
+│   ├── chatbot.py
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -118,6 +124,7 @@ The frontend will run on `http://localhost:3000`
 - Backend:
   - Flask
   - Google Gemini AI
+  - Google Places API
   - Flask-CORS
 
 - Database & Authentication:
@@ -132,6 +139,8 @@ The frontend will run on `http://localhost:3000`
 2. Firebase is used for:
    - User authentication
    - Storing user data and events
+   - Chat session management
+   - Calendar event storage
 
 ## Contributing
 
