@@ -43,4 +43,5 @@ yarn-error.log*
 # System Files
 .DS_Store
 Thumbs.db
-config/api_keys.json
+/config/api_keys.json
+/frontend/config/api_keys.json
