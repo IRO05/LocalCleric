@@ -154,16 +154,14 @@
   width: 10%;
   left: 45%;
   top: 60%;
-<<<<<<< HEAD
   opacity: 0.3;
   z-index: 0;
   pointer-events: none;
-=======
+
   opacity: 0.5;
   z-index: 1;
 }
 
 .clericProfile {
   height: 3rem;
->>>>>>> b89b4d63a5f31bbd95652cc3ea30eb884d2daee6
 }

@@ -1,17 +1,3 @@
 {
-    "firebase": {
-        "apiKey": "AIzaSyDAsGMfi49cxcyzSwglAlHRCziU5oAPMKY",
-        "authDomain": "local-cleric.firebaseapp.com",
-        "projectId": "local-cleric",
-        "storageBucket": "local-cleric.firebasestorage.app",
-        "messagingSenderId": "854998366275",
-        "appId": "1:854998366275:web:0a826066aff4fe66037cf6",
-        "measurementId": "G-C2WKMMQL1R"
-    },
-    "gemini": {
-        "api_key": "AIzaSyAtlRtNSyVxn3LMCafrIlRgKI3fdgOlQRg"
-    },
-    "google_places": {
-        "api_key": "AIzaSyAUjUzY_l6G5mIvWB3OjeUgxH2bVQWoek8"
-    }
+
 }
