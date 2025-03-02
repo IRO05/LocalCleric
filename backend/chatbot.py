@@ -2,9 +2,9 @@ import google.generativeai as genai
 import json
 import logging
 import requests
-import pandas as pd
 from werkzeug.exceptions import BadRequest, InternalServerError
 from datetime import datetime
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -15,48 +15,63 @@ class Chatbot:
         self.api_key = api_key
         self.places_api_key = places_api_key
         self.setup_model()
-        self.load_dataset()
         self.user_symptoms = {}  # Store symptoms per user
         self.user_severity = {}  # Store overall severity per user
         self.last_interaction = {}  # Track last interaction time per user
         self.last_recommended_doctor = {}  # Store last recommended doctor per user
+        self.awaiting_more_symptoms = {}  # Track if we're waiting for more symptoms
 
-    def load_dataset(self):
-        """Load and prepare the medical dataset"""
+    def setup_model(self):
+        """Initialize the Gemini model with API key"""
         try:
-            self.df = pd.read_csv('dataset/dataset_with_specialists.csv')
-            logger.info("Successfully loaded medical dataset")
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            logger.info("Successfully initialized Gemini model")
         except Exception as e:
-            logger.error(f"Error loading dataset: {str(e)}")
+            logger.error(f"Error initializing model: {str(e)}")
             raise
 
-    def match_symptoms(self, user_symptoms):
-        """Match user symptoms with diseases in the dataset"""
-        matches = []
-        user_symptoms = [s.lower() for s in user_symptoms]
-        
-        for _, row in self.df.iterrows():
-            symptom_match_count = 0
-            total_symptoms = 0
-            
-            for i in range(1, 18):
-                symptom = row[f'symptom{i}']
-                if pd.notna(symptom):
-                    total_symptoms += 1
-                    if symptom.lower() in user_symptoms:
-                        symptom_match_count += 1
-            
-            if total_symptoms > 0 and symptom_match_count > 0:
-                match_percentage = (symptom_match_count / total_symptoms) * 100
-                if match_percentage >= 30:
-                    matches.append({
-                        'disease': row['disease'],
-                        'specialist': row['specialist'],
-                        'match_percentage': match_percentage
-                    })
-        
-        matches.sort(key=lambda x: x['match_percentage'], reverse=True)
-        return matches[:3]
+    def get_specialist_for_symptoms(self, symptoms):
+        """Map symptoms to appropriate medical specialists"""
+        # Common symptom-to-specialist mappings
+        specialist_mappings = {
+            'headache': ['neurologist', 'general physician'],
+            'migraine': ['neurologist'],
+            'chest pain': ['cardiologist'],
+            'heart': ['cardiologist'],
+            'skin': ['dermatologist'],
+            'rash': ['dermatologist'],
+            'joint pain': ['orthopedist'],
+            'bone': ['orthopedist'],
+            'muscle': ['orthopedist'],
+            'vision': ['ophthalmologist'],
+            'eye': ['ophthalmologist'],
+            'stomach': ['gastroenterologist'],
+            'digestive': ['gastroenterologist'],
+            'mental': ['psychiatrist'],
+            'anxiety': ['psychiatrist'],
+            'depression': ['psychiatrist'],
+            'hormone': ['endocrinologist'],
+            'diabetes': ['endocrinologist'],
+            'thyroid': ['endocrinologist'],
+            'pregnancy': ['obstetrician'],
+            'gynecological': ['gynecologist'],
+            'urinary': ['urologist'],
+            'kidney': ['urologist']
+        }
+
+        recommended_specialists = set()
+        for symptom in symptoms:
+            symptom = symptom.lower()
+            for key, specialists in specialist_mappings.items():
+                if key in symptom:
+                    recommended_specialists.update(specialists)
+
+        # Default to general physician if no specific specialist is found
+        if not recommended_specialists:
+            recommended_specialists.add('general physician')
+
+        return list(recommended_specialists)
 
     def find_nearby_specialist(self, specialist_type):
         """Find nearby medical specialists using Google Places API"""
@@ -95,16 +110,6 @@ class Chatbot:
         except Exception as e:
             logger.error(f"Error finding specialist: {str(e)}")
             return None
-
-    def setup_model(self):
-        """Initialize the Gemini model with API key"""
-        try:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('models/gemini-2.0-flash')
-            logger.info("Successfully initialized Gemini model")
-        except Exception as e:
-            logger.error(f"Error initializing model: {str(e)}")
-            raise
 
     def parse_event_details(self, text):
         """Parse event details from AI response"""
@@ -157,13 +162,65 @@ class Chatbot:
         return (user_id not in self.last_interaction or 
                 (current_time - self.last_interaction[user_id]).total_seconds() > 3600)
 
+    def parse_time(self, message):
+        """Parse time from message"""
+        try:
+            # Look for time pattern like "1:14pm" or "2pm"
+            time_pattern = r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)'
+            match = re.search(time_pattern, message.lower())
+            
+            if match:
+                hour = int(match.group(1))
+                minutes = int(match.group(2)) if match.group(2) else 0
+                period = match.group(3).upper()
+                
+                # Convert to 12-hour format
+                if period == "PM" and hour != 12:
+                    hour += 12
+                elif period == "AM" and hour == 12:
+                    hour = 0
+                
+                return f"{hour % 12 or 12}:{minutes:02d} {period}"
+            
+            return "9:00 AM"  # Default time
+        except Exception as e:
+            logger.error(f"Error parsing time: {str(e)}")
+            return "9:00 AM"
+
+    def parse_date(self, message):
+        """Parse date from message"""
+        try:
+            # Look for date pattern like "3/8/25"
+            date_pattern = r'(\d{1,2})/(\d{1,2})/(\d{2}|\d{4})'
+            match = re.search(date_pattern, message)
+            
+            if match:
+                month = int(match.group(1))
+                day = int(match.group(2))
+                year = int(match.group(3))
+                
+                # Convert 2-digit year to 4-digit
+                if year < 100:
+                    year += 2000
+                
+                # Validate date
+                try:
+                    return datetime(year, month, day).strftime('%Y-%m-%d')
+                except ValueError:
+                    return datetime.now().strftime('%Y-%m-%d')
+            
+            return datetime.now().strftime('%Y-%m-%d')  # Default to today
+        except Exception as e:
+            logger.error(f"Error parsing date: {str(e)}")
+            return datetime.now().strftime('%Y-%m-%d')
+
     def generate_response(self, message, user_id="default"):
         """Generate a response using the Gemini model"""
         try:
             logger.info("Sending request to Gemini API")
             self.last_interaction[user_id] = datetime.now()
             
-            base_prompt = """You are a medical assistant. Keep responses under 2 sentences. For scheduling use:
+            base_prompt = """You are a medical assistant. Keep responses under 2 sentences. Only include SCHEDULE_EVENT if the user explicitly asks to schedule an appointment with a specific doctor. For scheduling use:
 SCHEDULE_EVENT:
 Title: [title]
 Date: YYYY-MM-DD
@@ -222,7 +279,7 @@ For example: "Schedule an appointment with them for 2:30 PM on 3/15/25"
 To get medical advice:
 Tell me your symptoms and rate your discomfort (1-10)
 For example: "I have headache and nausea, severity is 7"
-I'll suggest possible conditions and specialists
+I'll ask if you have more symptoms, then suggest appropriate specialists
 
 
 Try any of these commands - I'm here to help!"""
@@ -231,6 +288,41 @@ Try any of these commands - I'm here to help!"""
                     'text': help_text,
                     'event_details': None
                 }
+
+            # Check if we're waiting for more symptoms
+            if user_id in self.awaiting_more_symptoms and self.awaiting_more_symptoms[user_id]:
+                if any(word in message_lower for word in ['no', 'nope', "that's all", 'thats all', 'those are all']):
+                    self.awaiting_more_symptoms[user_id] = False
+                    # Get specialist recommendations based on all collected symptoms
+                    all_symptoms = self.user_symptoms.get(user_id, [])
+                    if all_symptoms:
+                        recommended_specialists = self.get_specialist_for_symptoms(all_symptoms)
+                        if recommended_specialists:
+                            specialist_info = self.find_nearby_specialist(recommended_specialists[0])
+                            if specialist_info:
+                                self.last_recommended_doctor[user_id] = specialist_info
+                                return {
+                                    'text': f"Based on your symptoms, I recommend seeing a {recommended_specialists[0]}. I found one nearby: {specialist_info['name']} at {specialist_info['address']}. Would you like me to schedule an appointment?",
+                                    'event_details': None
+                                }
+                    return {
+                        'text': "I recommend seeing a general physician to evaluate your symptoms. Would you like me to find one nearby?",
+                        'event_details': None
+                    }
+                else:
+                    # Add new symptoms to the existing list
+                    response = self.model.generate_content(base_prompt + message)
+                    if response.text:
+                        new_symptoms, new_severity = self.extract_symptoms(response.text)
+                        if new_symptoms:
+                            current_symptoms = self.user_symptoms.get(user_id, [])
+                            self.user_symptoms[user_id] = list(set(current_symptoms + new_symptoms))
+                        if new_severity:
+                            self.user_severity[user_id] = new_severity
+                    return {
+                        'text': "I've noted those additional symptoms. Are there any other symptoms you'd like to mention?",
+                        'event_details': None
+                    }
 
             # Check for doctor/specialist requests
             specialist_types = [
@@ -265,114 +357,53 @@ Try any of these commands - I'm here to help!"""
                         'event_details': None
                     }
 
-            # Handle non-doctor requests
-            response = self.model.generate_content(prompt + message)
-            if not response.text:
-                raise ValueError("Empty response from Gemini")
-            response_text = response.text
-            
-            # Check if user wants to schedule with last recommended doctor
+            # Handle scheduling requests
             if any(term in message.lower() for term in ["schedule", "appointment", "book"]) and "them" in message.lower():
                 if user_id in self.last_recommended_doctor:
                     doctor = self.last_recommended_doctor[user_id]
                     doctor_name = doctor['name'].split(',')[0]  # Get just the doctor/facility name
-                    # Extract date and time from message
-                    date = datetime.now().strftime('%Y-%m-%d')  # default to today
-                    time = "9:00 AM"  # default time
                     
-                    # Parse date
-                    if "on" in message.lower():
-                        message_parts = message.lower().split()
-                        for i, word in enumerate(message_parts):
-                            if word == "on" and i + 1 < len(message_parts):
-                                date_str = message_parts[i + 1]
-                                try:
-                                    # Try multiple date formats
-                                    for fmt in ['%m/%d/%y', '%m/%d/%Y']:
-                                        try:
-                                            parsed_date = datetime.strptime(date_str, fmt)
-                                            date = parsed_date.strftime('%Y-%m-%d')
-                                            break
-                                        except ValueError:
-                                            continue
-                                except Exception:
-                                    logger.warning(f"Could not parse date: {date_str}")
-                    
-                    # Parse time with minutes
-                    message_parts = message.lower().split()
-                    for i, word in enumerate(message_parts):
-                        if word in ["at", "for"]:
-                            if i + 1 < len(message_parts):
-                                next_word = message_parts[i + 1]
-                                # Handle time with minutes (e.g., "10:30 pm")
-                                if ":" in next_word:
-                                    time_parts = next_word.replace("pm", "").replace("am", "").strip().split(":")
-                                    if len(time_parts) == 2:
-                                        hour = int(time_parts[0])
-                                        minutes = int(time_parts[1])
-                                        if 1 <= hour <= 12 and 0 <= minutes <= 59:
-                                            period = "PM" if "pm" in next_word.lower() else "AM"
-                                            time = f"{hour}:{minutes:02d} {period}"
-                                else:
-                                    # Handle hour-only times (e.g., "10pm")
-                                    if "pm" in next_word:
-                                        hour = next_word.replace("pm", "").strip()
-                                        if hour.isdigit() and 1 <= int(hour) <= 12:
-                                            time = f"{int(hour)}:00 PM"
-                                    elif "am" in next_word:
-                                        hour = next_word.replace("am", "").strip()
-                                        if hour.isdigit() and 1 <= int(hour) <= 12:
-                                            time = f"{int(hour)}:00 AM"
+                    # Parse date and time from message
+                    date = self.parse_date(message)
+                    time = self.parse_time(message)
                     
                     response_text = f"I'll help you schedule an appointment with {doctor_name}.\nSCHEDULE_EVENT:\nTitle: Appointment with {doctor_name}\nDate: {date}\nTime: {time}"
+                    return {
+                        'text': f"I'll help you schedule an appointment with {doctor_name}.",
+                        'event_details': self.parse_event_details(response_text)
+                    }
+                else:
+                    return {
+                        'text': "I don't have a doctor to schedule with. Please find a doctor first using the find command.",
+                        'event_details': None
+                    }
+
+            # Handle new symptoms
+            response = self.model.generate_content(base_prompt + message)
+            if not response.text:
+                raise ValueError("Empty response from Gemini")
             
-            # Extract and store new symptoms if needed
-            if self.should_ask_severity(user_id):
-                symptoms, severity = self.extract_symptoms(response_text)
-                if symptoms:
-                    self.user_symptoms[user_id] = symptoms
+            symptoms, severity = self.extract_symptoms(response.text)
+            if symptoms:
+                self.user_symptoms[user_id] = symptoms
                 if severity:
                     self.user_severity[user_id] = severity
+                self.awaiting_more_symptoms[user_id] = True
+                return {
+                    'text': "I understand you're experiencing these symptoms. Are there any other symptoms you'd like to mention?",
+                    'event_details': None
+                }
             
-            # Match symptoms with diseases
-            all_symptoms = self.user_symptoms.get(user_id, [])
-            if all_symptoms:
-                matches = self.match_symptoms(all_symptoms)
-                if matches:
-                    conditions = [match['disease'] for match in matches][:2]
-                    specialists = list(set(match['specialist'] for match in matches))
-                    specialist_info = self.find_nearby_specialist(specialists[0]) if specialists else None
-                    
-                    recommendations = f"\n\nPossible: {', '.join(conditions)}"
-                    if specialist_info:
-                        recommendations += f"\nNearest {specialists[0]}: {specialist_info['name']}"
-                    
-                    response_text += recommendations
-
-            # Check for event scheduling
-            event_details = self.parse_event_details(response_text)
-            
-            # Clean up response text
-            display_text = response_text
-            
-            # For scheduling, keep the first part of the message
-            if "SCHEDULE_EVENT:" in display_text:
-                display_text = display_text.split("SCHEDULE_EVENT:")[0].strip()
-                # If it's empty after splitting, use a default message
-                if not display_text and event_details:
-                    display_text = f"I'll help you schedule an appointment with {event_details['title'].replace('Appointment with ', '')}"
-            
-            # Remove any remaining prompt-like text
+            # If no symptoms found, just return the cleaned response
+            display_text = response.text
             if "Message:" in display_text:
                 display_text = display_text.split("Message:")[1].strip()
-            
-            # Clean up any other instruction-like text
             display_text = display_text.replace("You are a medical assistant", "").strip()
             display_text = display_text.replace("Keep responses under 2 sentences", "").strip()
 
             return {
                 'text': display_text,
-                'event_details': event_details
+                'event_details': None
             }
 
         except Exception as e:
