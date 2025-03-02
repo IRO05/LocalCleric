@@ -48,11 +48,7 @@ function Calendar() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    console.log('Attempting to query events with:', {
-      userUid: currentUser.uid,
-      startDate: today,
-      timestamp: Timestamp.fromDate(today)
-    });
+    console.log('Setting up events subscription for user:', currentUser.uid);
 
     try {
       const eventsRef = collection(getDb(), 'users', currentUser.uid, 'events');
@@ -77,17 +73,33 @@ function Calendar() {
         limit(EVENTS_PER_PAGE)
       );
 
+      console.log('Setting up snapshot listener with query:', {
+        path: eventsRef.path,
+        conditions: {
+          dateFrom: today.toISOString(),
+          orderBy: 'date',
+          limit: EVENTS_PER_PAGE
+        }
+      });
+
       // Set up snapshot listener with error handling
       const unsubscribe = onSnapshot(eventsQuery, (snapshot) => {
         console.log('Snapshot received:', {
           empty: snapshot.empty,
           size: snapshot.size,
-          docs: snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }))
+          docs: snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            date: doc.data().date.toDate().toISOString()
+          }))
         });
+
         const loadedEvents = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
+
+        console.log('Processed events:', loadedEvents);
         setEvents(loadedEvents);
         setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
         setHasMore(snapshot.docs.length === EVENTS_PER_PAGE);
@@ -108,22 +120,19 @@ function Calendar() {
   }, []);
 
   useEffect(() => {
-    console.log('Calendar component mounting, checking Firebase initialization:', {
-      authInitialized: !!auth
-    });
+    console.log('Calendar component mounting');
 
     if (!auth) {
-      console.error('Firebase auth not initialized');
+      console.error('Auth not initialized');
       setError('Unable to connect to the authentication service');
       setLoading(false);
       return;
     }
 
     try {
-      // Verify Firestore is initialized by attempting to access it
       getDb();
     } catch (error) {
-      console.error('Firestore not initialized:', error);
+      console.error('Database not initialized:', error);
       setError('Unable to connect to the database service');
       setLoading(false);
       return;
@@ -134,6 +143,7 @@ function Calendar() {
         isAuthenticated: !!currentUser,
         userId: currentUser?.uid
       });
+
       if (!currentUser) {
         navigate('/signin');
         return;
@@ -142,7 +152,6 @@ function Calendar() {
       setUser(currentUser);
       let eventsUnsubscribe;
 
-      // Set up events subscription
       subscribeToEvents(currentUser)
         .then(unsubscribe => {
           eventsUnsubscribe = unsubscribe;
@@ -216,8 +225,6 @@ function Calendar() {
       
       await retryOperation(async () => {
         const eventsRef = collection(getDb(), 'users', user.uid, 'events');
-        console.log('Collection reference:', eventsRef.path);
-        
         const docRef = await addDoc(eventsRef, eventData);
         console.log('Event added successfully with ID:', docRef.id);
       });
@@ -309,6 +316,9 @@ function Calendar() {
                       <h3>{event.title}</h3>
                       <p>Date: {event.date.toDate().toLocaleDateString()}</p>
                       {event.time && <p>Time: {event.time}</p>}
+                      {event.aiScheduled && (
+                        <span className="ai-badge">AI Scheduled</span>
+                      )}
                     </div>
                     <button
                       onClick={() => deleteEvent(event.id)}

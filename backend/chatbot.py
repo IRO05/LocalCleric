@@ -3,7 +3,8 @@ import json
 import logging
 import requests
 from werkzeug.exceptions import BadRequest, InternalServerError
-#idk if this saved
+from datetime import datetime
+
 logger = logging.getLogger(__name__)
 
 PLACES_API_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
@@ -57,32 +58,68 @@ class Chatbot:
             logger.error(f"Error initializing model: {str(e)}")
             raise
 
+    def parse_event_details(self, text):
+        """Parse event details from AI response"""
+        try:
+            if "SCHEDULE_EVENT:" not in text:
+                return None
+
+            event_section = text.split("SCHEDULE_EVENT:")[1].strip()
+            event_lines = event_section.split("\n")
+            event_details = {}
+
+            for line in event_lines:
+                if "Title:" in line:
+                    event_details['title'] = line.split("Title:")[1].strip()
+                elif "Date:" in line:
+                    event_details['date'] = line.split("Date:")[1].strip()
+                elif "Time:" in line:
+                    event_details['time'] = line.split("Time:")[1].strip()
+
+            if 'title' in event_details and 'date' in event_details:
+                return event_details
+            return None
+
+        except Exception as e:
+            logger.error(f"Error parsing event details: {str(e)}")
+            return None
+
     def generate_response(self, message):
         """Generate a response using the Gemini model"""
         try:
             logger.info("Sending request to Gemini API")
             
-            structured_prompt = """You are an AI-powered medical assistant, designed to help users understand their symptoms and suggest possible medical conditions. Your responses should be concise, direct, and professional, without unnecessary elaboration. You do not provide official diagnoses or medical advice but instead guide users towards potential concerns and recommend a relevant medical specialist or general physician.
+            structured_prompt = """You are an AI-powered medical assistant, designed to help users understand their symptoms and suggest possible medical conditions. You can also help schedule appointments and events. Your responses should be concise, direct, and professional.
 
-If the user describes symptoms, always ask them to rate the severity on a scale of 1-10.
+For medical inquiries:
+1. Ask users to rate symptoms on a scale of 1-10
+2. Recommend specialists when needed using "FIND_SPECIALIST:" prefix
+3. Guide users to appropriate medical professionals
+4. Remind users to seek emergency care (911) for severe symptoms
 
-When the user provides a pain/severity rating:
-- For ratings lower than 6, recommend a general physician first unless the symptoms clearly indicate a specialist is needed
-- For ratings 6 and above, recommend appropriate specialists based on the symptoms
-- For cases that are common symptoms like headaches or runny noses unless the symptoms are incredibly intense, recommend them to a general physician or urgent care center
+For scheduling requests:
+1. If the user wants to schedule something, format your response with "SCHEDULE_EVENT:" followed by:
+   Title: [Event title]
+   Date: [YYYY-MM-DD format]
+   Time: [HH:MM format in 24-hour time]
+2. Be specific about dates and times
+3. If the request is vague, ask for clarification about timing
+4. For medical appointments, include the type of appointment in the title
 
-If the user asks for a specialist recommendation or if your response includes recommending a specialist:
-1. Clearly specify the type of specialist needed (e.g., "cardiologist", "dermatologist", "general physician")
-2. Start that line with "FIND_SPECIALIST:" followed by the specialist type
-3. Keep it as a separate line in your response
+Example scheduling response:
+"I'll help you schedule that appointment.
+
+SCHEDULE_EVENT:
+Title: Follow-up with Dr. Smith
+Date: 2025-03-15
+Time: 14:30"
 
 Remember:
-1. Always maintain a professional tone
+1. Maintain a professional tone
 2. Be concise and direct
-3. Do not provide diagnoses
-4. Guide users to appropriate medical professionals
-5. Ask for symptom severity ratings
-6. Remind users to seek emergency care (911) for severe symptoms
+3. For medical queries, don't provide diagnoses
+4. For scheduling, always use the specified format
+5. Ask for clarification if timing is unclear
 
 User's message: """ + message
 
@@ -92,26 +129,33 @@ User's message: """ + message
                 logger.error("Received empty response from Gemini")
                 raise ValueError("Empty response from Gemini")
 
-            # Process the response to check for specialist recommendations
+            # Process the response
             response_text = response.text
-            specialist_line = None
             
+            # Check for specialist recommendation
+            specialist_line = None
             for line in response_text.split('\n'):
                 if line.startswith('FIND_SPECIALIST:'):
                     specialist_type = line.replace('FIND_SPECIALIST:', '').strip()
                     specialist_info = self.find_nearby_specialist(specialist_type)
                     if specialist_info:
                         specialist_line = f"\n\nRecommended {specialist_type}:\n" \
-                                       f"Name: {specialist_info['name']}\n" \
-                                       f"Address: {specialist_info['address']}"
+                                      f"Name: {specialist_info['name']}\n" \
+                                      f"Address: {specialist_info['address']}"
                     break
+
+            # Check for event scheduling
+            event_details = self.parse_event_details(response_text)
             
-            final_response = response_text.replace(line, '') if specialist_line else response_text
+            # Clean up response and add additional information
+            final_response = response_text
             if specialist_line:
-                final_response += specialist_line
+                final_response = response_text.replace(line, '') + specialist_line
             
-            logger.info("Successfully generated response from Gemini")
-            return final_response
+            return {
+                'text': final_response,
+                'event_details': event_details
+            }
 
         except Exception as e:
             logger.error(f"Gemini API Error: {str(e)}")
