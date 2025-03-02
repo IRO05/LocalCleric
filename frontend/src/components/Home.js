@@ -9,9 +9,7 @@ function Home() {
         <h1 className="page-title">Local Cleric</h1>
         <h2>Our Mission</h2>
         <p>
-          Local Cleric is designed to be your intelligent digital assistant,
-          combining the power of AI with practical organizational tools to help
-          streamline your daily activities and boost productivity.
+          At Local Cleric, we’re redefining how you manage your health and schedule. By combining the power of <strong>AI-driven insights</strong> with intuitive organizational tools, we aim to simplify your daily life, boost productivity, and empower you to make smarter decisions—all in one seamless platform.
         </p>
       </div>
 
@@ -21,32 +19,28 @@ function Home() {
           <div className="feature-card">
             <h3>AI Chat Assistant</h3>
             <p>
-              Powered by Google's Gemini AI, our chatbot provides intelligent
-              responses and assistance for your queries.
+            Powered by Google's Gemini AI, our chatbot offers intelligent, real-time assistance for your health and scheduling needs. Describe your symptoms for personalized doctor recommendations, and get help with appointment scheduling all in a simple, conversational interface.
             </p>
           </div>
           
           <div className="feature-card">
             <h3>Event Management</h3>
             <p>
-              Keep track of your schedule with our intuitive calendar system,
-              making event management simple and efficient.
+            Manage your schedule effortlessly with our intuitive calendar. Add or delete events, and let the AI handle appointments and reminders for you.
             </p>
           </div>
           
           <div className="feature-card">
             <h3>Cloud Storage</h3>
             <p>
-              Secure data storage powered by Firebase, ensuring your information
-              is safe and accessible when you need it.
+            Securely store and access your data with <strong>Firebase</strong>, ensuring it’s always safe, synchronized, and ready when you need it.
             </p>
           </div>
           
           <div className="feature-card">
             <h3>User Authentication</h3>
             <p>
-              Robust security features to protect your account and personal
-              information.
+              Protect your account with **robust security features** powered by <strong>Google and Firebase</strong>. Enjoy secure logins and end-to-end encryption.
             </p>
           </div>
         </div>
