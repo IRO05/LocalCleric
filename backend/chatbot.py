@@ -58,7 +58,7 @@ class Chatbot:
         matches.sort(key=lambda x: x['match_percentage'], reverse=True)
         return matches[:3]
 
-    def find_nearby_specialist(self, specialist_type, location=""):
+    def find_nearby_specialist(self, specialist_type):
         """Find nearby medical specialists using Google Places API"""
         try:
             # Handle different types of doctor searches
@@ -68,11 +68,14 @@ class Chatbot:
             elif "specialist" in search_term:
                 search_term = search_term.replace(" specialist", "")
             
-            query = f"{search_term} doctor near {location}" if location else f"{search_term} doctor"
+            # Use default location (Newark, DE) for searches
+            query = f"{search_term} doctor in Newark, DE"
             params = {
                 'query': query,
                 'key': self.places_api_key,
-                'type': 'doctor'
+                'type': 'doctor',
+                'location': '39.6837,-75.7497',  # Newark, DE coordinates
+                'radius': '10000'  # 10km radius
             }
             
             response = requests.get(PLACES_API_URL, params=params)
@@ -207,7 +210,11 @@ Try any of these commands - I'm here to help!"""
                 }
 
             # Check for doctor/specialist requests
-            specialist_types = ["cardiologist", "neurologist", "dermatologist", "pediatrician", "orthopedist"]
+            specialist_types = [
+                "cardiologist", "neurologist", "dermatologist", "pediatrician",
+                "orthopedist", "gynecologist", "obstetrician", "psychiatrist",
+                "ophthalmologist", "urologist", "endocrinologist"
+            ]
             doctor_type = None
 
             # Check for specialists first
@@ -227,6 +234,11 @@ Try any of these commands - I'm here to help!"""
                     self.last_recommended_doctor[user_id] = specialist_info
                     return {
                         'text': f"I found a {doctor_type} near you: {specialist_info['name']} at {specialist_info['address']}",
+                        'event_details': None
+                    }
+                else:
+                    return {
+                        'text': f"I apologize, but I couldn't find a {doctor_type} in the area. Please try again later.",
                         'event_details': None
                     }
 
@@ -252,25 +264,42 @@ Try any of these commands - I'm here to help!"""
                             if word == "on" and i + 1 < len(message_parts):
                                 date_str = message_parts[i + 1]
                                 try:
-                                    parsed_date = datetime.strptime(date_str, '%m/%d/%y')
-                                    date = parsed_date.strftime('%Y-%m-%d')
-                                except ValueError:
-                                    pass
+                                    # Try multiple date formats
+                                    for fmt in ['%m/%d/%y', '%m/%d/%Y']:
+                                        try:
+                                            parsed_date = datetime.strptime(date_str, fmt)
+                                            date = parsed_date.strftime('%Y-%m-%d')
+                                            break
+                                        except ValueError:
+                                            continue
+                                except Exception:
+                                    logger.warning(f"Could not parse date: {date_str}")
                     
-                    # Parse time
+                    # Parse time with minutes
                     message_parts = message.lower().split()
                     for i, word in enumerate(message_parts):
                         if word in ["at", "for"]:
                             if i + 1 < len(message_parts):
                                 next_word = message_parts[i + 1]
-                                if "pm" in next_word:
-                                    hour = next_word.replace("pm", "").strip()
-                                    if hour.isdigit() and 1 <= int(hour) <= 12:
-                                        time = f"{int(hour)}:00 PM"
-                                elif "am" in next_word:
-                                    hour = next_word.replace("am", "").strip()
-                                    if hour.isdigit() and 1 <= int(hour) <= 12:
-                                        time = f"{int(hour)}:00 AM"
+                                # Handle time with minutes (e.g., "10:30 pm")
+                                if ":" in next_word:
+                                    time_parts = next_word.replace("pm", "").replace("am", "").strip().split(":")
+                                    if len(time_parts) == 2:
+                                        hour = int(time_parts[0])
+                                        minutes = int(time_parts[1])
+                                        if 1 <= hour <= 12 and 0 <= minutes <= 59:
+                                            period = "PM" if "pm" in next_word.lower() else "AM"
+                                            time = f"{hour}:{minutes:02d} {period}"
+                                else:
+                                    # Handle hour-only times (e.g., "10pm")
+                                    if "pm" in next_word:
+                                        hour = next_word.replace("pm", "").strip()
+                                        if hour.isdigit() and 1 <= int(hour) <= 12:
+                                            time = f"{int(hour)}:00 PM"
+                                    elif "am" in next_word:
+                                        hour = next_word.replace("am", "").strip()
+                                        if hour.isdigit() and 1 <= int(hour) <= 12:
+                                            time = f"{int(hour)}:00 AM"
                     
                     response_text = f"I'll help you schedule an appointment with {doctor_name}.\nSCHEDULE_EVENT:\nTitle: Appointment with {doctor_name}\nDate: {date}\nTime: {time}"
             
@@ -300,11 +329,23 @@ Try any of these commands - I'm here to help!"""
             # Check for event scheduling
             event_details = self.parse_event_details(response_text)
             
-            # Clean up response text by removing SCHEDULE_EVENT section
-            if "SCHEDULE_EVENT:" in response_text:
-                display_text = response_text.split("SCHEDULE_EVENT:")[0].strip()
-            else:
-                display_text = response_text
+            # Clean up response text
+            display_text = response_text
+            
+            # For scheduling, keep the first part of the message
+            if "SCHEDULE_EVENT:" in display_text:
+                display_text = display_text.split("SCHEDULE_EVENT:")[0].strip()
+                # If it's empty after splitting, use a default message
+                if not display_text and event_details:
+                    display_text = f"I'll help you schedule an appointment with {event_details['title'].replace('Appointment with ', '')}"
+            
+            # Remove any remaining prompt-like text
+            if "Message:" in display_text:
+                display_text = display_text.split("Message:")[1].strip()
+            
+            # Clean up any other instruction-like text
+            display_text = display_text.replace("You are a medical assistant", "").strip()
+            display_text = display_text.replace("Keep responses under 2 sentences", "").strip()
 
             return {
                 'text': display_text,

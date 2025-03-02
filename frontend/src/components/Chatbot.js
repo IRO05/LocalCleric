@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Chatbot.css';
 import { db as getDb, auth } from '../firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, query, orderBy, getDocs, limit } from 'firebase/firestore';
 const logo = require("../assets/localClericLogo.png")
 
 function Chatbot() {
@@ -12,6 +12,73 @@ function Chatbot() {
   }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    const initializeSession = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const sessionsRef = collection(getDb(), 'users', user.uid, 'chatSessions');
+          
+          // Get the most recent session
+          const q = query(sessionsRef, orderBy('startedAt', 'desc'), limit(1));
+          const querySnapshot = await getDocs(q);
+          
+          let currentSessionId;
+          
+          if (querySnapshot.empty) {
+            // Create new session if none exists
+            const sessionDoc = await addDoc(sessionsRef, {
+              startedAt: Timestamp.now(),
+              userId: user.uid
+            });
+            currentSessionId = sessionDoc.id;
+            
+            // Store initial welcome message
+            const messagesRef = collection(getDb(), 'users', user.uid, 'chatSessions', currentSessionId, 'messages');
+            await addDoc(messagesRef, {
+              text: messages[0].text,
+              sender: messages[0].sender,
+              timestamp: Timestamp.now()
+            });
+          } else {
+            // Use existing session
+            currentSessionId = querySnapshot.docs[0].id;
+          }
+          
+          setSessionId(currentSessionId);
+        }
+      } catch (error) {
+        console.error('Error initializing chat session:', error);
+      }
+    };
+
+    initializeSession();
+  }, []);
+
+  const storeMessage = async (message, sender) => {
+    try {
+      const user = auth.currentUser;
+      if (user && sessionId) {
+        const messagesRef = collection(
+          getDb(),
+          'users',
+          user.uid,
+          'chatSessions',
+          sessionId,
+          'messages'
+        );
+        await addDoc(messagesRef, {
+          text: message,
+          sender: sender,
+          timestamp: Timestamp.now()
+        });
+      }
+    } catch (error) {
+      console.error('Error storing message:', error);
+    }
+  };
 
   const createEvent = async (eventDetails) => {
     try {
@@ -68,46 +135,122 @@ function Chatbot() {
     }
   };
 
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user && sessionId) {
+          const messagesRef = collection(getDb(), 'users', user.uid, 'chatSessions', sessionId, 'messages');
+          const q = query(messagesRef, orderBy('timestamp', 'asc'));
+          const querySnapshot = await getDocs(q);
+          const loadedMessages = querySnapshot.docs.map(doc => ({
+            text: doc.data().text,
+            sender: doc.data().sender,
+            error: doc.data().error || false
+          }));
+
+          if (loadedMessages.length > 0) {
+            // For existing sessions, use all loaded messages
+            setMessages(loadedMessages);
+          } else {
+            // For new sessions or if no messages found, ensure welcome message is present
+            setMessages([{
+              text: "Welcome! I am the cleric and I shall help you with any of your medical needs, type Help to get a list of things I can do and remember! For emergencies call 911! Now how can I help you today?",
+              sender: 'bot'
+            }]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    };
+
+    if (sessionId) {
+      loadMessages();
+    }
+  }, [sessionId]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
 
     const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
     setIsLoading(true);
 
     try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('You must be signed in to chat');
+      }
+
+      // Update UI and store message
+      setMessages(prev => [...prev, { text: userMessage, sender: 'user' }]);
+      await storeMessage(userMessage, 'user');
+
       const response = await axios.post('http://localhost:5003/api/chat', {
-        message: userMessage
+        message: userMessage,
+        user_id: user.uid
       });
 
       // Handle event scheduling if suggested by the AI
       if (response.data.event_details) {
         try {
           await createEvent(response.data.event_details);
+          const botResponse = response.data.response;
+          const successMessage = "I've added this event to your calendar!";
+          
+          // Update UI first
           setMessages(prev => [
             ...prev,
-            { text: response.data.response, sender: 'bot' },
-            { text: "I've added this event to your calendar!", sender: 'bot' }
+            { text: botResponse, sender: 'bot' },
+            { text: successMessage, sender: 'bot' }
+          ]);
+
+          // Then store in Firebase
+          await Promise.all([
+            storeMessage(botResponse, 'bot'),
+            storeMessage(successMessage, 'bot')
           ]);
         } catch (error) {
+          const botResponse = response.data.response;
+          const errorMessage = `I couldn't create the event: ${error.message}`;
+          
+          // Update UI first
           setMessages(prev => [
             ...prev,
-            { text: response.data.response, sender: 'bot' },
-            { text: `I couldn't create the event: ${error.message}`, sender: 'bot', error: true }
+            { text: botResponse, sender: 'bot' },
+            { text: errorMessage, sender: 'bot', error: true }
+          ]);
+
+          // Then store in Firebase
+          await Promise.all([
+            storeMessage(botResponse, 'bot'),
+            storeMessage(errorMessage, 'bot')
           ]);
         }
       } else {
-        setMessages(prev => [...prev, { text: response.data.response, sender: 'bot' }]);
+        const botResponse = response.data.response;
+        
+        // Update UI first
+        setMessages(prev => [...prev, { text: botResponse, sender: 'bot' }]);
+        
+        // Then store in Firebase
+        await storeMessage(botResponse, 'bot');
       }
     } catch (error) {
       console.error('Error:', error.response?.data?.error || error.message);
+      const errorMessage = error.response?.data?.error || 'Sorry, I encountered an error. Please try again.';
+      
+      // Update UI first
       setMessages(prev => [...prev, {
-        text: error.response?.data?.error || 'Sorry, I encountered an error. Please try again.',
+        text: errorMessage,
         sender: 'bot',
         error: true
       }]);
+
+      // Then store in Firebase
+      await storeMessage(errorMessage, 'bot');
     } finally {
       setIsLoading(false);
     }
