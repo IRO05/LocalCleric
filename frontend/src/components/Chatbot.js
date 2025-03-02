@@ -3,8 +3,8 @@ import axios from 'axios';
 import './Chatbot.css';
 import { db as getDb, auth } from '../firebase';
 import { collection, addDoc, Timestamp, doc, query, orderBy, getDocs, limit, setDoc } from 'firebase/firestore';
-const logo = require("../assets/localClericLogo.png")
-const clericProfile = require("../assets/clericProfile.png")
+import logo from "../assets/localClericLogo.png";
+import clericProfile from "../assets/clericProfile.png";
 
 function Chatbot() {
   const [messages, setMessages] = useState([{
@@ -283,7 +283,7 @@ function Chatbot() {
               key={index} 
               className={`message ${message.sender} ${message.error ? 'error' : ''}`}
             >
-              {message.sender === "bot" && <img src={clericProfile} className='clericProfile' />}
+              {message.sender === "bot" && <img src={clericProfile} alt="Cleric Profile" className='clericProfile' />}
               {message.text}
             </div>
           ))}
