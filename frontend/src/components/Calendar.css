@@ -122,11 +122,15 @@
 .event-card {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   padding: 1rem;
   background-color: #f8f9fa;
   border-radius: 4px;
   border-left: 4px solid #3498db;
+}
+
+.event-info {
+  flex-grow: 1;
 }
 
 .event-info h3 {
@@ -141,8 +145,14 @@
   font-size: 0.9rem;
 }
 
-.event-info {
-  flex-grow: 1;
+.ai-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  background-color: #2ecc71;
+  color: white;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
 }
 
 .delete-event-button {

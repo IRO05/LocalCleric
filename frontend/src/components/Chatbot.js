@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './Chatbot.css';
+import { db as getDb, auth } from '../firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 const logo = require("../assets/localClericLogo.png")
 
 function Chatbot() {
@@ -10,6 +12,49 @@ function Chatbot() {
   }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const createEvent = async (eventDetails) => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('You must be signed in to schedule events');
+      }
+
+      // Parse the date string to ensure correct format
+      const [year, month, day] = eventDetails.date.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day); // month is 0-based
+      
+      if (isNaN(eventDate.getTime())) {
+        throw new Error('Invalid date format');
+      }
+
+      // Set the time if provided
+      if (eventDetails.time) {
+        const [hours, minutes] = eventDetails.time.split(':').map(Number);
+        eventDate.setHours(hours, minutes);
+      }
+
+      const eventData = {
+        title: eventDetails.title,
+        date: Timestamp.fromDate(eventDate),
+        time: eventDetails.time || '',
+        createdAt: Timestamp.now(),
+        userId: user.uid,
+        aiScheduled: true
+      };
+
+      console.log('Creating event with data:', eventData);
+
+      const eventsRef = collection(getDb(), 'users', user.uid, 'events');
+      const docRef = await addDoc(eventsRef, eventData);
+      console.log('Event created with ID:', docRef.id);
+
+      return true;
+    } catch (error) {
+      console.error('Error creating event:', error);
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +70,25 @@ function Chatbot() {
         message: userMessage
       });
 
-      setMessages(prev => [...prev, { text: response.data.response, sender: 'bot' }]);
+      // Handle event scheduling if suggested by the AI
+      if (response.data.event_details) {
+        try {
+          await createEvent(response.data.event_details);
+          setMessages(prev => [
+            ...prev,
+            { text: response.data.response, sender: 'bot' },
+            { text: "I've added this event to your calendar!", sender: 'bot' }
+          ]);
+        } catch (error) {
+          setMessages(prev => [
+            ...prev,
+            { text: response.data.response, sender: 'bot' },
+            { text: `I couldn't create the event: ${error.message}`, sender: 'bot', error: true }
+          ]);
+        }
+      } else {
+        setMessages(prev => [...prev, { text: response.data.response, sender: 'bot' }]);
+      }
     } catch (error) {
       console.error('Error:', error.response?.data?.error || error.message);
       setMessages(prev => [...prev, {

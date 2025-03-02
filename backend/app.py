@@ -5,6 +5,7 @@ import os
 import logging
 from werkzeug.exceptions import BadRequest
 from chatbot import Chatbot
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -44,8 +45,16 @@ def chat():
             logger.warning("Request is not JSON")
             raise BadRequest("Request must be JSON")
 
-        response_text = chatbot.process_chat_request(request.json)
-        return jsonify({'response': response_text})
+        response = chatbot.process_chat_request(request.json)
+        
+        # Check if response contains event details
+        if isinstance(response, dict):
+            return jsonify({
+                'response': response['text'],
+                'event_details': response.get('event_details')
+            })
+        
+        return jsonify({'response': response})
 
     except BadRequest as e:
         logger.warning(f"Bad Request: {str(e)}")
@@ -53,13 +62,6 @@ def chat():
     except Exception as e:
         logger.error(f"Unexpected Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/api/calendar', methods=['GET'])
-def get_calendar():
-    # Placeholder for calendar data
-    return jsonify({
-        'events': []
-    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5003)
