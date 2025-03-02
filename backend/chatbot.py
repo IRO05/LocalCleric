@@ -180,6 +180,29 @@ Message: """
 
             message_lower = message.lower().strip()
             
+            # Handle greetings, thanks, and goodbyes
+            greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
+            thanks = ["thank you", "thanks", "appreciate it", "thank"]
+            goodbyes = ["bye", "goodbye", "see you", "see ya"]
+            
+            if any(message_lower.startswith(greeting) for greeting in greetings):
+                return {
+                    'text': "Hello! How can I help you today?",
+                    'event_details': None
+                }
+            
+            if any(thank in message_lower for thank in thanks):
+                return {
+                    'text': "You're welcome!",
+                    'event_details': None
+                }
+                
+            if any(goodbye in message_lower for goodbye in goodbyes):
+                return {
+                    'text': "Goodbye! Take care!",
+                    'event_details': None
+                }
+            
             # Handle help command first
             if message_lower == "help":
                 help_text = """Here's how to use the cleric:

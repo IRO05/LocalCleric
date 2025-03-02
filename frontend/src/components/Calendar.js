@@ -216,14 +216,17 @@ function Calendar() {
     if (!newEvent.title || !newEvent.date || !user) return;
 
     try {
-      const eventDate = new Date(newEvent.date);
+      // Create date object and set to midnight local time
+      const [year, month, day] = newEvent.date.split('-').map(Number);
+      const eventDate = new Date(year, month - 1, day); // month is 0-based
       if (isNaN(eventDate.getTime())) {
         throw new Error('Invalid date format');
       }
+      eventDate.setHours(0, 0, 0, 0); // Set to midnight local time
 
       const eventData = {
         title: newEvent.title,
-        date: Timestamp.fromDate(eventDate),
+        date: Timestamp.fromDate(eventDate), // Now correctly preserves the local date
         time: newEvent.time || '',
         createdAt: Timestamp.now(),
         userId: user.uid,

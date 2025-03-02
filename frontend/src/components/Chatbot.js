@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './Chatbot.css';
 import { db as getDb, auth } from '../firebase';
-import { collection, addDoc, Timestamp, doc, query, orderBy, getDocs, limit } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, query, orderBy, getDocs, limit, setDoc } from 'firebase/firestore';
 const logo = require("../assets/localClericLogo.png")
 const clericProfile = require("../assets/clericProfile.png")
 
@@ -20,7 +20,12 @@ function Chatbot() {
       try {
         const user = auth.currentUser;
         if (user) {
-          const sessionsRef = collection(getDb(), 'users', user.uid, 'chatSessions');
+          // Ensure parent collections exist
+          const userDocRef = doc(getDb(), 'users', user.uid);
+          const sessionsRef = collection(userDocRef, 'chatSessions');
+          
+          // Create or update user document
+          await setDoc(userDocRef, { uid: user.uid }, { merge: true });
           
           // Get the most recent session
           const q = query(sessionsRef, orderBy('startedAt', 'desc'), limit(1));
@@ -136,36 +141,46 @@ function Chatbot() {
     }
   };
 
-  useEffect(() => {
-    const loadMessages = async () => {
-      try {
-        const user = auth.currentUser;
-        if (user && sessionId) {
-          const messagesRef = collection(getDb(), 'users', user.uid, 'chatSessions', sessionId, 'messages');
-          const q = query(messagesRef, orderBy('timestamp', 'asc'));
-          const querySnapshot = await getDocs(q);
-          const loadedMessages = querySnapshot.docs.map(doc => ({
-            text: doc.data().text,
-            sender: doc.data().sender,
-            error: doc.data().error || false
-          }));
+  const loadMessages = async () => {
+    try {
+      const user = auth.currentUser;
+      if (user && sessionId) {
+        const messagesRef = collection(getDb(), 'users', user.uid, 'chatSessions', sessionId, 'messages');
+        const q = query(messagesRef, orderBy('timestamp', 'asc'));
+        const querySnapshot = await getDocs(q);
+        const loadedMessages = querySnapshot.docs.map(doc => ({
+          text: doc.data().text,
+          sender: doc.data().sender,
+          error: doc.data().error || false
+        }));
 
-          if (loadedMessages.length > 0) {
-            // For existing sessions, use all loaded messages
-            setMessages(loadedMessages);
-          } else {
-            // For new sessions or if no messages found, ensure welcome message is present
-            setMessages([{
-              text: "Welcome! I am the cleric and I shall help you with any of your medical needs, type Help to get a list of things I can do and remember! For emergencies call 911! Now how can I help you today?",
-              sender: 'bot'
-            }]);
-          }
+        if (loadedMessages.length > 0) {
+          setMessages(loadedMessages);
+        } else {
+          // For new sessions or if no messages found, ensure welcome message is present
+          setMessages([{
+            text: "Welcome! I am the cleric and I shall help you with any of your medical needs, type Help to get a list of things I can do and remember! For emergencies call 911! Now how can I help you today?",
+            sender: 'bot'
+          }]);
         }
-      } catch (error) {
-        console.error('Error loading messages:', error);
       }
-    };
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
 
+  // Load messages when auth state changes
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user && sessionId) {
+        loadMessages();
+      }
+    });
+    return () => unsubscribe();
+  }, [sessionId]);
+
+  // Load messages when sessionId changes
+  useEffect(() => {
     if (sessionId) {
       loadMessages();
     }
