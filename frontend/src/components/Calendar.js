@@ -66,12 +66,20 @@ function Calendar() {
       });
 
       // If we get here, we have permission, so proceed with the actual query
+      // Create a query for all events, ordered by date
       const eventsQuery = query(
         eventsRef,
-        where('date', '>=', Timestamp.fromDate(today)),
-        orderBy('date'),
+        orderBy('date', 'asc'),
         limit(EVENTS_PER_PAGE)
       );
+
+      console.log('Query created:', {
+        path: eventsRef.path,
+        conditions: {
+          orderBy: 'date',
+          limit: EVENTS_PER_PAGE
+        }
+      });
 
       console.log('Setting up snapshot listener with query:', {
         path: eventsRef.path,
@@ -99,7 +107,7 @@ function Calendar() {
           ...doc.data()
         }));
 
-        console.log('Processed events:', loadedEvents);
+        console.log('Loaded events:', loadedEvents);
         setEvents(loadedEvents);
         setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
         setHasMore(snapshot.docs.length === EVENTS_PER_PAGE);
@@ -216,10 +224,16 @@ function Calendar() {
       const eventData = {
         title: newEvent.title,
         date: Timestamp.fromDate(eventDate),
-        time: newEvent.time,
+        time: newEvent.time || '',
         createdAt: Timestamp.now(),
-        userId: user.uid
+        userId: user.uid,
+        aiScheduled: false
       };
+
+      console.log('Creating event with data:', {
+        ...eventData,
+        date: eventData.date.toDate().toISOString()
+      });
 
       console.log('Adding new event with data:', eventData);
       
@@ -315,7 +329,25 @@ function Calendar() {
                     <div className="event-info">
                       <h3>{event.title}</h3>
                       <p>Date: {event.date.toDate().toLocaleDateString()}</p>
-                      {event.time && <p>Time: {event.time}</p>}
+                      {event.time && (
+                        <p>Time: {
+                          (() => {
+                            try {
+                              // Handle both 24-hour format and already formatted times
+                              if (event.time.includes('AM') || event.time.includes('PM')) {
+                                return event.time;
+                              }
+                              return new Date(`2000-01-01T${event.time}`).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+                            } catch (e) {
+                              return event.time; // Fallback to original time string if parsing fails
+                            }
+                          })()
+                        }</p>
+                      )}
                       {event.aiScheduled && (
                         <span className="ai-badge">AI Scheduled</span>
                       )}
