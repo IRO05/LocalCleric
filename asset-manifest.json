@@ -1,18 +1,19 @@
 {
   "files": {
-    "main.css": "/LocalCleric/static/css/main.149aea31.css",
-    "main.js": "/LocalCleric/static/js/main.31a70943.js",
+    "main.css": "/LocalCleric/static/css/main.25ad45de.css",
+    "main.js": "/LocalCleric/static/js/main.ee1f817f.js",
     "static/js/453.8ab44547.chunk.js": "/LocalCleric/static/js/453.8ab44547.chunk.js",
     "static/media/googleLogo.webp": "/LocalCleric/static/media/googleLogo.657e2193c46f76ae18b4.webp",
     "static/media/H25_BG.png": "/LocalCleric/static/media/H25_BG.b242d3d1a211927806d6.png",
     "static/media/localClericLogo.png": "/LocalCleric/static/media/localClericLogo.5d1bd8ef2fa7cf99ff1a.png",
+    "static/media/clericProfile.png": "/LocalCleric/static/media/clericProfile.b6db60dc46b02dd35c56.png",
     "index.html": "/LocalCleric/index.html",
-    "main.149aea31.css.map": "/LocalCleric/static/css/main.149aea31.css.map",
-    "main.31a70943.js.map": "/LocalCleric/static/js/main.31a70943.js.map",
+    "main.25ad45de.css.map": "/LocalCleric/static/css/main.25ad45de.css.map",
+    "main.ee1f817f.js.map": "/LocalCleric/static/js/main.ee1f817f.js.map",
     "453.8ab44547.chunk.js.map": "/LocalCleric/static/js/453.8ab44547.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.149aea31.css",
-    "static/js/main.31a70943.js"
+    "static/css/main.25ad45de.css",
+    "static/js/main.ee1f817f.js"
   ]
 }
