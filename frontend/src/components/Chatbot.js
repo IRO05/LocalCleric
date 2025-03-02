@@ -259,7 +259,7 @@ function Chatbot() {
 
   return (
     <div className="chatbot-container">
-      <h1 id="clerictitle" className="page-title">Approach the cleric</h1>
+      <h1 id="clerictitle" className="page-title">Approach The Cleric</h1>
       <div className="chat-window">
         <img id="chatLogo" src={logo} alt="Logo" />
         <div className="messages">
