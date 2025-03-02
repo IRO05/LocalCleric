@@ -7,7 +7,7 @@
 }
 
 .auth-card {
-  background: white;
+  background-color: rgb(159, 187, 152);
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -41,7 +41,7 @@
 }
 
 .auth-button {
-  background-color: #3498db;
+  background-color: #56a165;
   color: white;
   border: none;
   padding: 1rem;
@@ -96,14 +96,13 @@
 }
 
 .google-icon {
-  width: 18px;
-  height: 18px;
+  width: 35px;
 }
 
 .auth-switch {
   text-align: center;
   margin-top: 1.5rem;
-  color: #7f8c8d;
+  color: #000000;
 }
 
 .switch-button {

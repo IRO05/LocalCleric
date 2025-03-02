@@ -3,6 +3,7 @@ import { auth, googleProvider } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
+const googleLogo = require("../assets/googleLogo.webp")
 
 function SignIn() {
   const [isSignIn, setIsSignIn] = useState(true);
@@ -125,7 +126,7 @@ function SignIn() {
           disabled={loading}
         >
           <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" 
+            src={googleLogo}
             alt="Google logo" 
             className="google-icon" 
           />
