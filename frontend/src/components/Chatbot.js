@@ -4,6 +4,7 @@ import './Chatbot.css';
 import { db as getDb, auth } from '../firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 const logo = require("../assets/localClericLogo.png")
+const clericProfile = require("../assets/clericProfile.png")
 
 function Chatbot() {
   const [messages, setMessages] = useState([{
@@ -112,6 +113,7 @@ function Chatbot() {
               key={index} 
               className={`message ${message.sender} ${message.error ? 'error' : ''}`}
             >
+              {message.sender === "bot" && <img src={clericProfile} className='clericProfile' />}
               {message.text}
             </div>
           ))}

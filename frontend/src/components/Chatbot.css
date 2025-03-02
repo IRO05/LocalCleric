@@ -39,6 +39,8 @@
   color: #2c3e50;
   margin-right: auto;
   z-index: 2;
+  display: flex;
+  column-gap: 20px;
 }
 
 .message.error {
@@ -152,4 +154,8 @@
   top: 60%;
   opacity: 0.5;
   z-index: 1;
+}
+
+.clericProfile {
+  height: 3rem;
 }
