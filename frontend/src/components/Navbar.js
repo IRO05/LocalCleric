@@ -45,7 +45,13 @@ function Navbar() {
         <Link to="/chatbot" className="nav-link">Chat Bot</Link>
         {user ? (
           <div className="user-menu">
-            <span className="user-email">{user.email}</span>
+            <span className="user-email">
+              {user.displayName ?
+                (user.displayName.length > 10 ?
+                  `${user.displayName.substring(0, 10)}...` :
+                  user.displayName) :
+                'User'}
+            </span>
             <button onClick={handleSignOut} className="sign-out-button">
               Sign Out
             </button>

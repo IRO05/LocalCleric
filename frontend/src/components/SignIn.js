@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth, googleProvider } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, updateProfile } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
 
@@ -9,7 +9,8 @@ function SignIn() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    username: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,10 @@ function SignIn() {
         if (formData.password !== formData.confirmPassword) {
           throw new Error('Passwords do not match');
         }
-        await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        await updateProfile(userCredential.user, {
+          displayName: formData.username
+        });
       }
       navigate('/calendar'); // Redirect to calendar page after successful auth
     } catch (err) {
@@ -84,16 +88,28 @@ function SignIn() {
             autoComplete="current-password"
           />
           {!isSignIn && (
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              className="auth-input"
-              required
-              autoComplete="new-password"
-            />
+            <>
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={formData.username}
+                onChange={handleChange}
+                className="auth-input"
+                required
+                maxLength="10"
+              />
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="auth-input"
+                required
+                autoComplete="new-password"
+              />
+            </>
           )}
           <button 
             type="submit" 
